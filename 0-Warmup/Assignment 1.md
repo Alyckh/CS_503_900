@@ -1,4 +1,5 @@
 **Questions to Answer**
+
 Please provide answers to these questions using markdown notation and place them in the \0-Warmup directory in your git repository:
 
 1. Select with an x the platform you will be using for your course deliverables:
