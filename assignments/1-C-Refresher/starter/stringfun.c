@@ -1,172 +1,159 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <stdbool.h>
+#include <ctype.h>
+#include <string.h>
 
-//Constants
-#define SPACE_CHAR ' '
+#define BUFFER_SZ 50
 
-//Function Prototypes
-void usage(char* exename);
-int count_words(char* str);
-void reverse_string(char* str);
-void word_print(char* str);
+// Function prototypes
+void setup_buff(char* buff, const char* user_str, size_t buff_sz);
+int count_words(const char* buff, size_t len);
+void reverse_string(const char* buff, size_t len);
+void word_print(const char* buff, size_t len);
+void print_buff(const char* buff, size_t len);
 
-//Displays usage information for the program
-void usage(char* exename) {
-    printf("usage: %s [-h|c|r|w] \"string\"\n", exename);
-    printf("\texample: %s -w \"hello class\"\n", exename);
+void error_exit(const char* msg, int code) {
+    fprintf(stderr, "%s\n", msg);
+    exit(code);
 }
 
-//Counts the number of words in a given string
-int count_words(char* str) {
-    int len = strlen(str);
-    int wc = 0;
-    bool word_start = false;
+// Function to setup the buffer
+void setup_buff(char* buff, const char* user_str, size_t buff_sz) {
+    size_t i = 0, j = 0;
+    int prev_space = 0;
 
-    for (int i = 0; i < len; i++) {
-        char c = str[i];
-        if (!word_start) {
-            if (c != SPACE_CHAR) {
-                wc++;
-                word_start = true;
+    while (user_str[i] != '\0' && j < buff_sz) {
+        if (isspace(user_str[i])) {
+            if (!prev_space && j < buff_sz - 1) {
+                buff[j++] = ' ';
+                prev_space = 1;
             }
         }
         else {
-            if (c == SPACE_CHAR) {
-                word_start = false;
-            }
+            buff[j++] = user_str[i];
+            prev_space = 0;
         }
+        i++;
     }
-    return wc;
-}
 
-//TODO #1: Why provide function prototypes?
-    // Function prototypes ensure that the compiler knows about the functions' signatures before their actual definitions. This allows for easier changes to the program and proper type checking of function calls.
+    if (user_str[i] != '\0') {
+        error_exit("error: Provided input string is too long", 3);
+    }
 
-//Reverses the given string in place
-void reverse_string(char* str) {
-    int start_idx = 0;
-    int end_idx = strlen(str) - 1;
-    while (start_idx < end_idx) {
-        char tmp = str[start_idx];
-        str[start_idx] = str[end_idx];
-        str[end_idx] = tmp;
-        start_idx++;
-        end_idx--;
+    while (j < buff_sz) {
+        buff[j++] = '.';
     }
 }
 
-//Prints each word in teh string with its index and length
-void word_print(char* str) {
-    int len = strlen(str);
-    int last_char_idx = len - 1;
-    int wc = 0;
-    int wlen = 0;
-    bool word_start = false;
+// Function to count words
+int count_words(const char* buff, size_t len) {
+    int count = 0;
+    int in_word = 0;
 
-    for (int i = 0; i < len; i++) {
-        char c = str[i];
-        if (!word_start) {
-            if (c != SPACE_CHAR) {
-                wc++;
-                word_start = true;
-                wlen = 0;
-                printf("%d. ", wc);
-            }
+    for (size_t i = 0; i < len; i++) {
+        if (buff[i] == '.') break;
+
+        if (!isspace(buff[i]) && !in_word) {
+            in_word = 1;
+            count++;
         }
-        if (word_start) {
-            if (c != SPACE_CHAR) {
-                printf("%c", c);
-                wlen++;
-            }
-            if (c == SPACE_CHAR || i == last_char_idx) {
-                printf(" (%d)\n", wlen);
-                word_start = false;
-            }
+        else if (isspace(buff[i])) {
+            in_word = 0;
         }
+    }
+
+    return count;
+}
+
+// Function to reverse string
+void reverse_string(const char* buff, size_t len) {
+    const char* end = buff + len - 1;
+    while (*end == '.') end--;
+
+    for (; end >= buff; end--) {
+        putchar(*end);
+    }
+    putchar('\n');
+}
+
+// Function to print words with their lengths
+void word_print(const char* buff, size_t len) {
+    int word_index = 1;
+    int word_len = 0;
+
+    printf("Word Print\n----------\n");
+    for (size_t i = 0; i < len; i++) {
+        if (buff[i] == '.' || buff[i] == '\0') break;
+
+        if (!isspace(buff[i])) {
+            putchar(buff[i]);
+            word_len++;
+        }
+        else if (word_len > 0) {
+            printf(" (%d)\n", word_len);
+            word_index++;
+            word_len = 0;
+        }
+    }
+
+    if (word_len > 0) {
+        printf(" (%d)\n", word_len);
     }
 }
 
-//Main Function
+// Function to print the buffer
+void print_buff(const char* buff, size_t len) {
+    printf("Buffer: \"%.*s\"\n", (int)len, buff);
+}
+
 int main(int argc, char* argv[]) {
-    char* input_string;
-    char* opt_string;
-    char opt;
-
-    //Validate the number of arguments
-    if (argc < 2) {
-        usage(argv[0]);
-        exit(1);
+    if (argc < 3) {
+        error_exit("Usage: ./stringfun -<option> <string>", 1);
     }
 
-    opt_string = argv[1];
+    char option = argv[1][1];
+    const char* user_str = argv[2];
 
-    //Validate the option format
-    if ((opt_string[0] != '-') || (strlen(opt_string) != 2)) {
-        usage(argv[0]);
-        exit(1);
+    if (strlen(user_str) > BUFFER_SZ) {
+        error_exit("error: Input string exceeds buffer size.", 3);
     }
 
-    opt = opt_string[1];
-
-    //Handle help option
-    if (opt == 'h') {
-        usage(argv[0]);
-        exit(0);
+    char* buff = malloc(BUFFER_SZ);
+    if (!buff) {
+        error_exit("error: Memory allocation failure.", 2);
     }
 
-    //Ensure input string is provided
-    if (argc != 3) {
-        usage(argv[0]);
-        exit(1);
-    }
+    setup_buff(buff, user_str, BUFFER_SZ);
+    size_t len = BUFFER_SZ;
 
-    input_string = argv[2];
-
-    //TODO #2: Call count_words, return of the result should go into the wc variable. (-c "Now count these words")
-        //Word Count: 4
-    switch (opt) {
+    switch (option) {
     case 'c': {
-        int wc = count_words(input_string);
-        printf("Word Count: %d\n", wc);
+        int word_count = count_words(buff, len);
+        printf("Word Count: %d\n", word_count);
         break;
     }
-
-    //TODO #3: Call reverse string using input_string, inpute string should be reversed. (-r "This will be in reverse now")
-        //Reversed string: won esrever ni eb lliw sihT
     case 'r': {
-        reverse_string(input_string);
-        printf("Reversed string: %s\n", input_string);
+        printf("Reversed String: ");
+        reverse_string(buff, len);
         break;
     }
-
-    //TODO #4: Why is the string reversed in place?
-        //In-place reversal modifies the original string directly in memory. This makes the process more efficient.
-
-
     case 'w': {
-        printf("Word Print\n----------\n");
-        word_print(input_string);
+        word_print(buff, len);
         break;
     }
-    //TODO #5: Call word_print, output should be printed by that function (-w "This is the output")
-        //1. This (4)
-        //2. is(2)
-        //3. the(3)
-        //4. output(6)
+    case 'x': {
+        if (argc != 5) {
+            error_exit("error: -x option requires 3 arguments", 1);
+        }
 
+        printf("Not Implemented!\n");
+        exit(3);
+    }
     default:
-        usage(argv[0]);
-        printf("Invalid option %c provided, exiting!\n", opt);
-        exit(1);
+        error_exit("error: Unknown option", 1);
     }
 
-    //TODO: #6 What is the purpose of the default option?
-        //The default case handles invalid or unsupported options. It ensures the program can inform the user of the error and exits instead of behaving oddly.
-
-    //TODO: #7 Why use break in each case but not default?
-        //The break statement prevents fall-through in switch cases. Without it, the program would continue into the next case. The default case doesn't require a break because it's the last one, and the program exits immediately after handling it.
-
+    print_buff(buff, len);
+    free(buff);
     return 0;
 }
