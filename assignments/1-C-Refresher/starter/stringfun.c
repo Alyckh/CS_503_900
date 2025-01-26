@@ -1,171 +1,253 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <stdbool.h>
+#include <string.h>
 
-//Constants
-#define SPACE_CHAR ' '
+#define BUFFER_SZ 50
 
-//Function Prototypes
-void usage(char* exename);
-int count_words(char* str);
-void reverse_string(char* str);
-void word_print(char* str);
+// Function prototypes
+void usage(char *);
+void print_buff(char *, int);
+int setup_buff(char *, char *, int);
+int count_words(char *, int, int);
+int reverse_string(char *, int);
+int print_words_and_lengths(char *, int);
+int replace_word(char *, int, char *, char *);
 
-//Displays usage information for the program
-void usage(char* exename) {
-    printf("usage: %s [-h|c|r|w] \"string\"\n", exename);
-    printf("\texample: %s -w \"hello class\"\n", exename);
+// Function to setup the buffer based on input string
+int setup_buff(char *buff, char *user_str, int len) {
+    char *src = user_str; // Pointer to traverse user string
+    char *dest = buff;    // Pointer to traverse buffer
+    int count = 0;        // Counts non-whitespace characters
+
+    // Iterate through user string
+    while (*src != '\0') {
+        if (*src == ' ' || *src == '\t') { // Handle whitespace
+            if (dest != buff && *(dest - 1) != ' ') {
+                *dest++ = ' ';
+                count++;
+            }
+        } else {
+            *dest++ = *src;
+            count++;
+        }
+        src++;
+        if (count >= len) return -1; // Buffer overflow
+    }
+
+    // Fill remaining buffer with dots
+    while (count < len) {
+        *dest++ = '.';
+        count++;
+    }
+
+    return count;
 }
 
-//Counts the number of words in a given string
-int count_words(char* str) {
-    int len = strlen(str);
-    int wc = 0;
-    bool word_start = false;
+// Function to count words
+int count_words(char *buff, int len, int str_len) {
+    int count = 0;
+    int in_word = 0;
 
+    for (int i = 0; i < str_len; i++) {
+        if (*(buff + i) != ' ' && *(buff + i) != '.') {
+            if (!in_word) {
+                in_word = 1;
+                count++;
+            }
+        } else {
+            in_word = 0;
+        }
+    }
+
+    return count;
+}
+
+// Function to reverse the string
+int reverse_string(char *buff, int str_len) {
+    char *start = buff;
+    char *end = buff + str_len - 1;
+    char temp;
+
+    while (start < end) {
+        temp = *start;
+        *start = *end;
+        *end = temp;
+        start++;
+        end--;
+    }
+
+    return 0;
+}
+
+// Function to print words and their lengths
+int print_words_and_lengths(char *buff, int str_len) {
+    printf("Word Print\n----------\n");
+    char *start = buff;
+    int word_len = 0;
+    int word_count = 1;
+
+    for (int i = 0; i < str_len; i++) {
+        if (*(buff + i) != ' ' && *(buff + i) != '.') {
+            if (word_len == 0) {
+                printf("%d. ", word_count++);
+                start = buff + i;
+            }
+            putchar(*(buff + i));
+            word_len++;
+        } else if (word_len > 0) {
+            printf(" (%d)\n", word_len);
+            word_len = 0;
+        }
+    }
+
+    if (word_len > 0) {
+        printf(" (%d)\n", word_len);
+    }
+
+    return 0;
+}
+
+// Function to replace a word
+int replace_word(char *buff, int len, char *search, char *replace) {
+    char *found = NULL;
+    char *end = buff + len;
+    int search_len = 0, replace_len = 0;
+
+    // Calculate lengths of search and replace strings
+    while (search[search_len] != '\0') search_len++;
+    while (replace[replace_len] != '\0') replace_len++;
+
+    // Search for the word
+    for (char *ptr = buff; ptr < end - search_len; ptr++) {
+        if (*ptr == *search && strncmp(ptr, search, search_len) == 0) {
+            found = ptr;
+            break;
+        }
+    }
+
+    if (found) {
+        if (replace_len > search_len && (end - buff) < len - (replace_len - search_len)) {
+            return -1; // Buffer overflow
+        }
+
+        // Move characters to adjust for the length difference
+        if (replace_len != search_len) {
+            memmove(found + replace_len, found + search_len, (end - found - search_len));
+        }
+
+        // Copy replacement string
+        for (int i = 0; i < replace_len; i++) {
+            *(found + i) = *(replace + i);
+        }
+    }
+
+    return 0;
+}
+
+// Function to print the buffer
+void print_buff(char *buff, int len) {
+    printf("Buffer:  ");
     for (int i = 0; i < len; i++) {
-        char c = str[i];
-        if (!word_start) {
-            if (c != SPACE_CHAR) {
-                wc++;
-                word_start = true;
-            }
-        }
-        else {
-            if (c == SPACE_CHAR) {
-                word_start = false;
-            }
-        }
+        putchar(*(buff + i));
     }
-    return wc;
+    putchar('\n');
 }
 
-//TODO #1: Why provide function prototypes?
-// Function prototypes ensure that the compiler knows about the functions' signatures before their actual definitions. This allows for proper type checking during compilation and flexibility in function order.
-
-//Reverses the given string in place
-void reverse_string(char* str) {
-    int start_idx = 0;
-    int end_idx = strlen(str) - 1;
-    while (start_idx < end_idx) {
-        char tmp = str[start_idx];
-        str[start_idx] = str[end_idx];
-        str[end_idx] = tmp;
-        start_idx++;
-        end_idx--;
-    }
+// Function to print usage information
+void usage(char *exename) {
+    printf("usage: %s [-h|c|r|w|x] \"string\" [other args]\n", exename);
 }
 
-//Prints each word in the string with its index and length
-void word_print(char* str) {
-    int len = strlen(str);
-    int last_char_idx = len - 1;
-    int wc = 0;
-    int wlen = 0;
-    bool word_start = false;
+// Main function
+int main(int argc, char *argv[]) {
+    char *buff;             // Internal buffer
+    char *input_string;     // User input string
+    char opt;               // Option flag
+    int rc;                 // Return code
+    int user_str_len;       // User string length
 
-    for (int i = 0; i < len; i++) {
-        char c = str[i];
-        if (!word_start) {
-            if (c != SPACE_CHAR) {
-                wc++;
-                word_start = true;
-                wlen = 0;
-                printf("%d. ", wc);
-            }
-        }
-        if (word_start) {
-            if (c != SPACE_CHAR) {
-                printf("%c", c);
-                wlen++;
-            }
-            if (c == SPACE_CHAR || i == last_char_idx) {
-                printf(" (%d)\n", wlen);
-                word_start = false;
-            }
-        }
-    }
-}
-
-//Main Function
-int main(int argc, char* argv[]) {
-    char* input_string;
-    char* opt_string;
-    char opt;
-
-    //Validate the number of arguments
-    if (argc < 2) {
+    // TODO #1: Why is this safe?
+    // This is safe because it will check if the number of arguments is less than 2 (`argc < 2`) before attempting to access `argv[1]`.
+    if ((argc < 2) || (*argv[1] != '-')) {
         usage(argv[0]);
         exit(1);
     }
 
-    opt_string = argv[1];
+    opt = (char) *(argv[1] + 1); // Get option flag
 
-    //Validate the option format
-    if ((opt_string[0] != '-') || (strlen(opt_string) != 2)) {
-        usage(argv[0]);
-        exit(1);
-    }
-
-    opt = opt_string[1];
-
-    //Handle help option
     if (opt == 'h') {
         usage(argv[0]);
         exit(0);
     }
 
-    //Ensure input string is provided
-    if (argc != 3) {
+    // TODO #2: Document the purpose of the if statement below.
+    // This checks if the user provided an input string (`argc < 3`). If not, the program exits.
+    if (argc < 3) {
         usage(argv[0]);
         exit(1);
     }
 
     input_string = argv[2];
 
+    // TODO #3: Allocate buffer and handle malloc failure
+    buff = (char *) malloc(BUFFER_SZ);
+    if (!buff) {
+        printf("Error: Memory allocation failed\n");
+        exit(99);
+    }
+
+    user_str_len = setup_buff(buff, input_string, BUFFER_SZ);
+    if (user_str_len < 0) {
+        printf("Error setting up buffer, error = %d\n", user_str_len);
+        free(buff);
+        exit(2);
+    }
+
     switch (opt) {
-    case 'c': {
-        //TODO #2: Call count_words, return of the result should go into the wc variable. (-c "Now count these words")
-        //Word Count: 4
-        int wc = count_words(input_string);
-        printf("Word Count: %d\n", wc);
-        break;
+        case 'c':
+            rc = count_words(buff, BUFFER_SZ, user_str_len);
+            printf("Word Count: %d\n", rc);
+            break;
+        case 'r':
+            reverse_string(buff, user_str_len);
+            printf("Reversed String: ");
+            for (int i = 0; i < user_str_len; i++) {
+                putchar(*(buff + i));
+            }
+            putchar('\n');
+            break;
+        case 'w':
+            print_words_and_lengths(buff, user_str_len);
+            break;
+        case 'x':
+            if (argc < 5) {
+                printf("Error: Missing arguments for replace\n");
+                free(buff);
+                exit(1);
+            }
+            rc = replace_word(buff, BUFFER_SZ, argv[3], argv[4]);
+            if (rc < 0) {
+                printf("Error: Buffer overflow during replace\n");
+                free(buff);
+                exit(2);
+            }
+            printf("Modified String: ");
+            for (int i = 0; i < BUFFER_SZ && buff[i] != '.'; i++) {
+                putchar(buff[i]);
+            }
+            putchar('\n');
+            break;
+        default:
+            usage(argv[0]);
+            free(buff);
+            exit(1);
     }
 
-    case 'r': {
-        //TODO #3: Call reverse string using input_string, input string should be reversed. (-r "This will be in reverse now")
-        //Reversed string: won esrever ni eb lliw sihT
-        reverse_string(input_string);
-        printf("Reversed string: %s\n", input_string);
-        break;
-    }
-
-            //TODO #4: Why is the string reversed in place?
-            // In-place reversal modifies the original string directly in memory. This is memory-efficient as it avoids creating additional copies of the string.
-
-    case 'w': {
-        //TODO #5: Call word_print, output should be printed by that function (-w "This is the output")
-        //1. This (4)
-        //2. is (2)
-        //3. the (3)
-        //4. output (6)
-        printf("Word Print\n----------\n");
-        word_print(input_string);
-        break;
-    }
-
-    default:
-        usage(argv[0]);
-        printf("Invalid option %c provided, exiting!\n", opt);
-        exit(1);
-    }
-
-    //TODO #6 What is the purpose of the default option?
-    // The default case handles invalid or unsupported options. It ensures the program provides proper feedback to the user about incorrect usage and exits gracefully.
-
-    //TODO #7 Why use break in each case but not default?
-    // The break statement prevents fall-through in switch cases. Without it, execution would continue to the next case. Default doesn't require a break here because it exits the program.
-
-    return 0;
+    // TODO #6: Free the buffer before exiting
+    print_buff(buff, BUFFER_SZ);
+    free(buff);
+    exit(0);
 }
+
+// TODO #7: Why is providing both the pointer and length good practice?
+// Providing both the pointer and the length ensures the program knows the size of the buffer, which prevents accidental overflows.
