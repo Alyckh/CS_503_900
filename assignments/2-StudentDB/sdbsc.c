@@ -9,30 +9,27 @@
 #include "sdbsc.h"
 
 int add_student(int id, const char *fname, const char *lname, int gpa) {
-    // First, check if the student ID already exists
+    // check if the student ID already exists
     if (find_student(id) != NULL) {
-        // Student already exists
         printf("Cant add student with ID=%d, already exists in db.\n", id);
-        return 1;  // Return failure code if the student already exists
+        return 1;  // failure code if the student already exists
     }
 
     int fd = open(DB_FILE, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (fd == -1) {
         perror("Error opening database file");
-        return -1;  // Error opening file
+        return -1;  // error opening file
     }
 
-    student_t new_student = {id, "", "", gpa};  // Initialize new student record
+    student_t new_student = {id, "", "", gpa};  // new student record
     strncpy(new_student.fname, fname, sizeof(new_student.fname) - 1);
     strncpy(new_student.lname, lname, sizeof(new_student.lname) - 1);
     new_student.fname[sizeof(new_student.fname) - 1] = '\0';
     new_student.lname[sizeof(new_student.lname) - 1] = '\0';
 
-    // Find the appropriate offset for the new student record
     off_t offset = (id - 1) * sizeof(student_t);
     lseek(fd, offset, SEEK_SET);
 
-    // Write the student record to the file
     if (write(fd, &new_student, sizeof(student_t)) != sizeof(student_t)) {
         perror("Error writing to database file");
         close(fd);
@@ -40,7 +37,7 @@ int add_student(int id, const char *fname, const char *lname, int gpa) {
     }
 
     close(fd);
-    return 0;  // Success
+    return 0;
 }
 
 // Function to compress the database by removing deleted students
@@ -48,7 +45,7 @@ void compress_db() {
     int fd = open(DB_FILE, O_RDWR);
     if (fd == -1) {
         perror("Error opening database file");
-        return;  // Return here if we cannot open the file
+        return;
     }
 
     student_t student;
@@ -56,7 +53,7 @@ void compress_db() {
 
     // Process all students in the database
     while (read(fd, &student, sizeof(student_t)) == sizeof(student_t)) {
-        if (student.id != 0) {  // If student is valid
+        if (student.id != 0) {
             lseek(fd, valid_count * sizeof(student_t), SEEK_SET);
             write(fd, &student, sizeof(student_t));
             valid_count++;
@@ -123,7 +120,7 @@ void print_all_students() {
 }
 
 student_t* find_student(int id) {
-    static student_t student;  // Make the student variable static
+    static student_t student;
 
     int fd = open(DB_FILE, O_RDONLY);
     if (fd == -1) {
@@ -143,18 +140,18 @@ student_t* find_student(int id) {
     return NULL;  // Return NULL if student not found
 }
 
-// Count valid students (non-deleted records)
+// Count students
 int count_students() {
     int fd = open(DB_FILE, O_RDONLY);
     if (fd == -1) {
         perror("Error opening database file");
-        return -1;  // Return error if the file can't be opened
+        return -1;
     }
 
     student_t student;
     int valid_count = 0;
 
-    // Read each student record and count only valid ones (id != 0)
+    // Read each student record and count only valid ones
     while (read(fd, &student, sizeof(student_t)) == sizeof(student_t)) {
         if (student.id != 0) {  // Only count valid student records
             valid_count++;
@@ -162,11 +159,10 @@ int count_students() {
     }
 
     close(fd);
-    return valid_count;  // Return the count of valid student records
+    return valid_count;
 }
 
 int delete_student(int id) {
-    // Open the database file for reading and writing
     int fd = open(DB_FILE, O_RDWR);
     if (fd == -1) {
         perror("Error opening database file");
@@ -178,23 +174,22 @@ int delete_student(int id) {
     lseek(fd, offset, SEEK_SET);
 
     student_t student;
-    // Read the student record from the file
     if (read(fd, &student, sizeof(student_t)) != sizeof(student_t)) {
         close(fd);
         fprintf(stderr, "Student %d not found in database.\n", id);
         return -1;
     }
 
-    // If student ID is valid (non-zero), mark it as deleted (set ID to 0)
+    // If student ID is valid mark as deleted
     if (student.id != 0) {
         student.id = 0;
-        lseek(fd, offset, SEEK_SET);  // Seek back to the record's position
-        write(fd, &student, sizeof(student_t));  // Overwrite with the "deleted" student record
+        lseek(fd, offset, SEEK_SET);
+        write(fd, &student, sizeof(student_t));
         close(fd);
         return 0;
     }
 
-    // If student ID is 0 (indicating that the student doesn't exist), close and return error
+    // If student ID is 0 close and return error
     close(fd);
     return -1;
 }
