@@ -31,8 +31,8 @@ int main(int argc, char *argv[]) {
         }
     }
     else if (strcmp(command, "-p") == 0) {
-        // Print all valid students
-        print_all_students();  // Call the function to print valid students
+        // Print all students
+        print_all_students();
     }
     else if (strcmp(command, "-c") == 0) {
         // Count the number of students
@@ -63,7 +63,6 @@ int main(int argc, char *argv[]) {
     }
     }
     else if (strcmp(argv[1], "-f") == 0) {
-        // Find and print student by ID
         if (argc != 3) {
             fprintf(stderr, "Usage: %s -f <id>\n", argv[0]);
             return 1;
