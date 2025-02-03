@@ -10,12 +10,12 @@
 #define MAX_STD_ID 1000  // Example maximum student ID
 #define MIN_STD_ID 1  // Example minimum student ID
 
-// Structure for storing student data
+// storing student data
 typedef struct {
     int id;
     char fname[100];
     char lname[100];
-    int gpa;  // GPA is stored as an integer (e.g., 3500 for 3.5 GPA)
+    int gpa;  // GPA is stored as an integer
 } student_t;
 
 // Function declarations
