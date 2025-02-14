@@ -1,70 +1,164 @@
-#include "dshlib.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <ctype.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include "dshlib.h"
 
-void init_cmd_list(cmd_list_t *cmd_list) {
-    cmd_list->num_commands = 0;
-    for (int i = 0; i < MAX_COMMANDS; i++) {
-        cmd_list->commands[i].num_args = 0;
-        for (int j = 0; j < MAX_TOKENS; j++) {
-            cmd_list->commands[i].args[j] = NULL;
+int exec_local_cmd_loop() {
+    char input[SH_CMD_MAX];  // Buffer for user input
+    cmd_buff_t cmd;          // Command structure
+    int rc;                  // Return code
+
+    while (1) {
+        printf("%s", SH_PROMPT);  // Display prompt
+
+        if (fgets(input, SH_CMD_MAX, stdin) == NULL) {
+            printf("\n");
+            break;
+        }
+
+        input[strcspn(input, "\n")] = '\0';  // Remove newline character
+
+        // Clear and allocate command buffer
+        clear_cmd_buff(&cmd);
+        alloc_cmd_buff(&cmd);
+
+        // Parse input into cmd_buff_t
+        rc = build_cmd_buff(input, &cmd);
+        if (rc == WARN_NO_CMDS) {
+            printf("%s", CMD_WARN_NO_CMD);
+            continue;
+        }
+
+        // Handle built-in commands
+        if (exec_built_in_cmd(&cmd) == BI_EXECUTED) {
+            continue;
+        }
+
+        // Handle external commands
+        pid_t pid = fork();
+        if (pid < 0) {
+            perror("Fork failed");
+            continue;
+        }
+
+        if (pid == 0) {  // Child process
+            for (int i = 0; i < cmd.argc; i++) {
+                if (strcmp(cmd.argv[i], ">") == 0) {
+                    cmd.argv[i] = NULL;  // Terminate command arguments
+                    int fd = open(cmd.argv[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (fd < 0) {
+                        perror("Redirection failed");
+                        exit(ERR_EXEC_CMD);
+                    }
+                    dup2(fd, STDOUT_FILENO);
+                    close(fd);
+                    break;
+                }
+            }
+            execvp(cmd.argv[0], cmd.argv);
+            perror("Execution failed");
+            exit(ERR_EXEC_CMD);
+        } else {  // Parent process
+            int status;
+            waitpid(pid, &status, 0);
+            if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+                return ERR_EXEC_CMD;  // Ensure a non-zero exit code on failure
+            }
         }
     }
+
+    return OK;
 }
 
-int is_whitespace_only(const char *str) {
-    while (*str) {
-        if (!isspace((unsigned char)*str)) return 0;
-        str++;
+Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
+    if (cmd->argc == 0) {
+        return BI_NOT_BI;
     }
-    return 1;
+
+    if (strcmp(cmd->argv[0], "exit") == 0) {
+        exit(OK_EXIT);
+    }
+
+    if (strcmp(cmd->argv[0], "cd") == 0) {
+        if (cmd->argc == 1) {
+            return BI_EXECUTED;
+        }
+
+        if (chdir(cmd->argv[1]) != 0) {
+            perror("cd failed");
+            return BI_NOT_BI;  // Return an error indicator
+        }
+        return BI_EXECUTED;
+    }
+
+    return BI_NOT_BI;
 }
 
-int build_cmd_list(cmd_list_t *cmd_list, const char *input) {
-    if (!input || strlen(input) == 0 || is_whitespace_only(input)) return -1;
-
-    char *input_copy = strdup(input);
-    if (!input_copy) return -1;
-
-    int cmd_idx = 0;
-    char *saveptr;
-    char *cmd_token = strtok_r(input_copy, "|", &saveptr);
-
-    while (cmd_token) {
-        if (cmd_idx >= MAX_COMMANDS) {
-            printf("error: piping limited to %d commands\n", MAX_COMMANDS);
-            free(input_copy);
-            cmd_list->num_commands = 0;  // Ensure the command list is empty
-            return -1; // Too many commands
-        }
-
-        char *arg_saveptr;
-        char *arg_token = strtok_r(cmd_token, " \t\n", &arg_saveptr);
-        int arg_idx = 0;
-
-        while (arg_token) {
-            if (arg_idx >= MAX_TOKENS - 1) break; // Prevent overflow
-
-            cmd_list->commands[cmd_idx].args[arg_idx++] = strdup(arg_token);
-            arg_token = strtok_r(NULL, " \t\n", &arg_saveptr);
-        }
-
-        cmd_list->commands[cmd_idx].args[arg_idx] = NULL;
-        cmd_list->commands[cmd_idx].num_args = arg_idx;
-
-        cmd_token = strtok_r(NULL, "|", &saveptr);
-        cmd_idx++;
+int alloc_cmd_buff(cmd_buff_t *cmd_buff) {
+    cmd_buff->_cmd_buffer = (char *)malloc(SH_CMD_MAX);
+    if (!cmd_buff->_cmd_buffer) {
+        return ERR_MEMORY;
     }
-
-    cmd_list->num_commands = cmd_idx;
-    free(input_copy);
-    return 0;
+    memset(cmd_buff->_cmd_buffer, 0, SH_CMD_MAX);
+    cmd_buff->argc = 0;
+    return OK;
 }
 
-void free_cmd_list(cmd_list_t *cmd_list) {
-    for (int i = 0; i < cmd_list->num_commands; i++) {
-        for (int j = 0; j < cmd_list->commands[i].num_args; j++) {
-            free(cmd_list->commands[i].args[j]);
-        }
+int clear_cmd_buff(cmd_buff_t *cmd_buff) {
+    if (cmd_buff->_cmd_buffer) {
+        free(cmd_buff->_cmd_buffer);
+        cmd_buff->_cmd_buffer = NULL;
     }
-    init_cmd_list(cmd_list);  // Reset structure after freeing memory
+    cmd_buff->argc = 0;
+    return OK;
+}
+
+int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
+    bool in_quotes = false;
+    int argc = 0;
+
+    cmd_buff->_cmd_buffer = strdup(cmd_line);
+    if (!cmd_buff->_cmd_buffer) return ERR_MEMORY;
+
+    char *ptr = cmd_buff->_cmd_buffer;
+
+    while (*ptr) {
+        while (isspace((unsigned char)*ptr) && !in_quotes) ptr++;
+
+        if (*ptr == '"') {  
+            in_quotes = !in_quotes;
+            ptr++;
+            continue;
+        }
+
+        if (*ptr == '\0') break;
+
+        cmd_buff->argv[argc++] = ptr;
+        while (*ptr && (!isspace((unsigned char)*ptr) || in_quotes)) {
+            if (*ptr == '"') {  
+                memmove(ptr, ptr + 1, strlen(ptr));
+                in_quotes = !in_quotes;
+                continue;
+            }
+            ptr++;
+        }
+
+        if (*ptr) {  
+            *ptr = '\0';
+            ptr++;
+        }
+
+        if (argc >= CMD_ARGV_MAX) return ERR_CMD_OR_ARGS_TOO_BIG;
+    }
+
+    cmd_buff->argv[argc] = NULL;
+    cmd_buff->argc = argc;
+
+    return (argc == 0) ? WARN_NO_CMDS : OK;
 }
