@@ -12,3 +12,50 @@ EOF
     # Assertions
     [ "$status" -eq 0 ]
 }
+
+@test "Exit command should terminate the shell" {
+    run "./dsh" <<EOF
+exit
+EOF
+    [ "$status" -eq 0 ]
+}
+
+@test "Change directory - valid directory" {
+    current=$(pwd)
+
+    cd /tmp
+    mkdir -p dsh-test
+
+    run "${current}/dsh" <<EOF
+cd /tmp/dsh-test
+pwd
+EOF
+
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+    [[ "$stripped_output" == *"/tmp/dsh-test"* ]]
+}
+
+@test "External command execution - ls" {
+    run "./dsh" <<EOF
+ls
+EOF
+    [ "$status" -eq 0 ]
+}
+
+@test "Handling quoted spaces" {
+    run "./dsh" <<EOF
+echo "hello     world"
+EOF
+    stripped_output=$(echo "$output" | tr -d '\t\n\r\f\v')
+    [[ "$stripped_output" == *"hello     world"* ]]
+}
+
+@test "Redirection - echo to file" {
+    rm -f test_output.txt
+    run "./dsh" <<EOF
+echo "test message" > test_output.txt
+EOF
+    sleep 1  # Ensure file is written
+    [ -f "test_output.txt" ]  
+    grep -q "test message" test_output.txt  
+}
