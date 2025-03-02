@@ -49,7 +49,7 @@ EOF
     [[ "$output" =~ "student_tests.sh" ]]
 }
 
-# Test multiple pipes
+# Test multiple pipes at a time
 @test "Multiple pipes: ls | grep dsh | sort" {
     run ./dsh <<EOF
 ls | grep dsh | sort
