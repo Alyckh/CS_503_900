@@ -10,10 +10,14 @@
 # All tests in this file must pass - it is used as part of grading!
 ########################################################################################
 
-# Create a symbolic link to dsh
+# Create a symbolic link to dsh if it doesn't exist
 setup() {
+    # Get the absolute path of the "starter" directory (one level up from "bats")
+    starter_dir="$(dirname "$(pwd)")/starter"
+
+    # Check if the symbolic link exists in the bats folder
     if [ ! -L "./dsh" ]; then
-        ln -s /mnt/c/Users/amida/Desktop/4-ShellP2\ -\ Copy/starter/dsh ./dsh
+        ln -s "$starter_dir/dsh" ./dsh
         echo "Symlink created for dsh"
     else
         echo "Symlink for dsh already exists"
