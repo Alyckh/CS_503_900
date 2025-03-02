@@ -4,6 +4,16 @@
 # 
 # Create your unit tests suit in this file
 
+# Create a symbolic link to dsh if it doesn't exist
+setup() {
+    if [ ! -L "./dsh" ]; then
+        ln -s /mnt/c/Users/amida/Desktop/4-ShellP2\ -\ Copy/starter/dsh ./dsh
+        echo "Symlink created for dsh"
+    else
+        echo "Symlink for dsh already exists"
+    fi
+}
+
 @test "Example: check ls runs without errors" {
     run ./dsh <<EOF                
 ls
