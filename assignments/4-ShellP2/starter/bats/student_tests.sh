@@ -4,20 +4,6 @@
 # 
 # Create your unit tests suit in this file
 
-# Create a symbolic link to dsh if it doesn't exist
-setup() {
-    # Get the absolute path of the "starter" directory (one level up from "bats")
-    starter_dir="$(dirname "$(pwd)")/starter"
-
-    # Check if the symbolic link exists in the bats folder
-    if [ ! -L "./dsh" ]; then
-        ln -s "$starter_dir/dsh" ./dsh
-        echo "Symlink created for dsh"
-    else
-        echo "Symlink for dsh already exists"
-    fi
-}
-
 @test "Example: check ls runs without errors" {
     run ./dsh <<EOF                
 ls
